@@ -34,7 +34,7 @@ our @EXPORT = qw(
 
 );
 
-our $VERSION = sprintf "1.%02d", '$Revision: 13 $ ' =~ /(\d+)/;
+our $VERSION = sprintf "1.%02d", '$Revision: 14 $ ' =~ /(\d+)/;
 
 our $__ERROR__ = "croak";
 
@@ -332,7 +332,6 @@ if not, write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
 B<Tie::Hash::ImmutableKeys> Copyright (C) 2007 DULAUNOY Fabrice. B<Tie::Hash::ImmutableKeys> comes with ABSOLUTELY NO WARRANTY; 
 for details See: L<http://www.gnu.org/licenses/gpl.html> 
 This is free software, and you are welcome to redistribute it under certain conditions;
-
 
 
 =cut

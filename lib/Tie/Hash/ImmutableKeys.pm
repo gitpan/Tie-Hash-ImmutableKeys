@@ -8,6 +8,7 @@ require Exporter;
 
 use Tie::Hash;
 use Carp;
+
 #use vars qw($VERSION @ISA);
 
 our @ISA = qw(Exporter Tie::StdHash);
@@ -19,166 +20,187 @@ our @ISA = qw(Exporter Tie::StdHash);
 # This allows declaration	use Tie::Hash::ImmutableKeys ':all';
 # If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
 # will save memory.
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	
-) ] );
+#our %EXPORT_TAGS = (
+#    'all' => [
+#        qw(
+#
+#          )
+#    ],
+#);
 
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
+our @EXPORT_OK = qw( error );
 
 our @EXPORT = qw(
-	
+
 );
 
+our $VERSION = sprintf "1.%02d", '$Revision: 13 $ ' =~ /(\d+)/;
 
+our $__ERROR__ = "croak";
 
-#our $VERSION = do { my @rev = ( q$Revision: 11 $ =~ /\d+/g ); sprintf "1.%d" x $#rev, @rev };
-our $VERSION = sprintf "1.%02d", '$Revision: 11 $ ' =~ /(\d+)/;
+sub error
+{
+    $__ERROR__ = $_[1];
+}
 
-# Preloaded methods go here.
+sub __HANDEL_ERROR__
+{
+    if ( $__ERROR__ =~ /croak/i )
+    {
+        Carp::croak "COULD NOT DELETE key=" . $_[0] . " the val=" . $_[1];
+    }
+    elsif ( $__ERROR__ =~ /exit/i )
+    { 
+        exit;
+    }
+    else
+    {
+        Carp::carp "COULD NOT DELETE key=" . $_[0] . " the val=" . $_[1];
+    }
+}
 
 sub TIEHASH
+{
+    my $class = $_[0];
+    my $list  = $_[1];
+    my %all;
+    foreach my $k ( keys %$list )
     {
-        my $class = $_[0];
-        my $list  = $_[1];
-        my %all;
-        foreach my $k ( keys %$list )
+        if ( ( ref( $list->{ $k } ) ) =~ /HASH/i )
         {
-            if ( ( ref( $list->{ $k } ) ) =~ /HASH/i )
-            {
-                tie my %c, 'Tie::Hash::ImmutableKeys', $list->{ $k };
-                $all{ $k } = \%c;
-            }
-            else
-            {
-                $all{ $k } = $list->{ $k };
-            }
-        }
-        bless \%all, $class;
-        return \%all;
-    }
-
-    sub DELETE
-    {
-        if ( $_[2] )
-        {
-            delete $_[0]{ $_[1] };
+            tie my %c, 'Tie::Hash::ImmutableKeys', $list->{ $k };
+            $all{ $k } = \%c;
         }
         else
         {
-
-            my $line = ( caller( 0 ) )[2];
-            my $sub = ( caller( 1 ) )[3] || "main";
-            Carp::carp "line = $line sub = $sub COULD NOT DELETE in obj=" . $_[0] . "at key=" . $_[1] . " the val=" . $_[2] . "\n";
-
+            $all{ $k } = $list->{ $k };
         }
     }
+    bless \%all, $class;
+    return \%all;
+}
 
-    sub FORCE_DELETE
+sub DELETE
+{
+    if ( $_[2] )
     {
-        my $class = $_[0];
-        my $key   = $_[1];
-        my $leaf  = $_[2];
-        if ( ( ref( $key ) ) =~ /HASH/i )
-        {
-            foreach my $k ( keys %$key )
-            {
-                my %all;
-                if ( ( ref( $key->{ $k } ) ) =~ /HASH/i )
-                {
-                    tie( %all, 'Tie::Hash::ImmutableKeys', $class->{ $k } );
-                    my $obj = tied( %all );
-                    tie my %c, 'Tie::Hash::ImmutableKeys', $key->{ $k };
-                    $obj->FORCE_DELETE( $key->{ $k } );
-                    $class->{ $k } = \%all;
-                }
-                else
-                {
-                    tie( %all, 'Tie::Hash::ImmutableKeys', $class->{ $k } );
-                    my $obj = tied( %all );
-                    $obj->FORCE_DELETE( $key->{ $k }, 1 );
-                    $class->{ $k } = \%all;
-                }
-            }
-        }
-        else
-        {
-            $class->SUPER::DELETE( $key ) if $leaf;
-        }
-
+        delete $_[0]{ $_[1] };
     }
-
-    sub STORE
+    else
     {
-        if ( $_[3] )
-        {
-            $_[0]{ $_[1] } = $_[2];
-        }
-        else
-        {
-            if ( exists $_[0]{ $_[1] } )
-            {
 
-                $_[0]{ $_[1] } = $_[2] if exists $_[0]{ $_[1] };
-            }
-            else
-            {
-                my $line = ( caller( 0 ) )[2];
-                my $sub = ( caller( 1 ) )[3] || "main";
-                Carp::carp "line = $line sub = $sub COULD NOT New STORE in obj=" . $_[0] . "at key=" . $_[1] . " the val=" . $_[2] . "\n";
-            }
-        }
+        my $line = ( caller( 0 ) )[2];
+        my $sub = ( caller( 1 ) )[3] || "main";
+        __HANDEL_ERROR__( $_[1], $_[2] );
     }
+}
 
-    sub FORCE_STORE
+sub FORCE_DELETE
+{
+    my $class = $_[0];
+    my $key   = $_[1];
+    my $leaf  = $_[2];
+    if ( ( ref( $key ) ) =~ /HASH/i )
     {
-        my $class = $_[0];
-        my $key   = $_[1];
-        my $val   = $_[2];
-        if ( exists( $class->{ $key } ) )
-        {
-            if ( ( ref( $val ) ) =~ /HASH/i )
-            {
-                tie( my %all, 'Tie::Hash::ImmutableKeys', $class->{ $key } );
-                my $obj = tied( %all );
-                foreach my $k ( keys %$val )
-                {
-                    if ( ( ref( $val->{ $k } ) ) =~ /HASH/i )
-                    {
-                        tie my %c, 'Tie::Hash::ImmutableKeys', $val->{ $k };
-                        $obj->FORCE_STORE( $k, \%c );
-                    }
-                    else
-                    {
-                        $obj->STORE( $k, $val->{ $k }, 1 );
-                    }
-                }
-                $class->STORE( $key, \%all, 1 );
-            }
-            else
-            {
-                $class->SUPER::STORE( $key, $val );
-            }
-        }
-        else
+        foreach my $k ( keys %$key )
         {
             my %all;
+            if ( ( ref( $key->{ $k } ) ) =~ /HASH/i )
+            {
+                tie( %all, 'Tie::Hash::ImmutableKeys', $class->{ $k } );
+                my $obj = tied( %all );
+                tie my %c, 'Tie::Hash::ImmutableKeys', $key->{ $k };
+                $obj->FORCE_DELETE( $key->{ $k } );
+                $class->{ $k } = \%all;
+            }
+            else
+            {
+                tie( %all, 'Tie::Hash::ImmutableKeys', $class->{ $k } );
+                my $obj = tied( %all );
+                $obj->FORCE_DELETE( $key->{ $k }, 1 );
+                $class->{ $k } = \%all;
+            }
+        }
+    }
+    else
+    {
+        $class->SUPER::DELETE( $key ) if $leaf;
+    }
+
+}
+
+sub STORE
+{
+    if ( $_[3] )
+    {
+        $_[0]{ $_[1] } = $_[2];
+    }
+    else
+    {
+        if ( exists $_[0]{ $_[1] } )
+        {
+
+            $_[0]{ $_[1] } = $_[2] if exists $_[0]{ $_[1] };
+        }
+        else
+        {
+            my $line = ( caller( 0 ) )[2];
+            my $sub = ( caller( 1 ) )[3] || "main";
+            __HANDEL_ERROR__( $_[1], $_[2] );
+        }
+    }
+}
+
+sub FORCE_STORE
+{
+    my $class = $_[0];
+    my $key   = $_[1];
+    my $val   = $_[2];
+    if ( exists( $class->{ $key } ) )
+    {
+        if ( ( ref( $val ) ) =~ /HASH/i )
+        {
+            tie( my %all, 'Tie::Hash::ImmutableKeys', $class->{ $key } );
+            my $obj = tied( %all );
             foreach my $k ( keys %$val )
             {
                 if ( ( ref( $val->{ $k } ) ) =~ /HASH/i )
                 {
                     tie my %c, 'Tie::Hash::ImmutableKeys', $val->{ $k };
-                    $all{ $k } = \%c;
+                    $obj->FORCE_STORE( $k, \%c );
                 }
                 else
                 {
-                    $all{ $k } = $val->{ $k };
+                    $obj->STORE( $k, $val->{ $k }, 1 );
                 }
             }
-            my %tmp;
-            tie( %tmp, 'Tie::Hash::ImmutableKeys', \%all );
-            $class->SUPER::STORE( $key, \%tmp );
+            $class->STORE( $key, \%all, 1 );
+        }
+        else
+        {
+            $class->SUPER::STORE( $key, $val );
         }
     }
+    else
+    {
+        my %all;
+        foreach my $k ( keys %$val )
+        {
+            if ( ( ref( $val->{ $k } ) ) =~ /HASH/i )
+            {
+                tie my %c, 'Tie::Hash::ImmutableKeys', $val->{ $k };
+                $all{ $k } = \%c;
+            }
+            else
+            {
+                $all{ $k } = $val->{ $k };
+            }
+        }
+        my %tmp;
+        tie( %tmp, 'Tie::Hash::ImmutableKeys', \%all );
+        $class->SUPER::STORE( $key, \%tmp );
+    }
+}
 
 1;
 __END__
@@ -244,7 +266,8 @@ It is working on all the tree key created (keys and subkeys are immutable).
   $obj->FORCE_DELETE( { 'S' => { AA => { L => 'aze' } } } );
   print "NEW KEY after FORCE_DELETE" . Dumper( \%a );
   
-  
+  ## force the module to exit with an error
+  tied(%a)->error('exit');
 
 
 =head1 DESCRIPTION
@@ -263,7 +286,21 @@ It is working on all the tree key created (keys and subkeys are immutable).
   FORCE_DELETE this, key
       Delete the key key from the tied hash this.
   
+  There is an exportable function "error" to allow a differrnt way to complain if we try to modify/delete a locked key
   
+  use Tie::Hash::ImmutableKeys qw( error );
+  
+  	my %a;
+	tie( %a, 'Tie::Hash::ImmutableKeys', $list );
+	tied(%a)->error('exit');
+	
+  The posible parameter for the error are:
+  	croak	this is the default behaviour, the module die if we try to modify a locked key and print some info about the error.
+	carp	the module warn if we try to modify a locked key and print some info about the error.
+	exit    the module simple exit with a return value of 0
+	
+   any other value fallback to croak.
+   
 =head1 SEE ALSO
 
 fields, Hash::Util, Class::PseudoHash
